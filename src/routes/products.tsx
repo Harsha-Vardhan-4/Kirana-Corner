@@ -79,16 +79,19 @@ function ProductsPage() {
           <div className="mb-4 flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+            <Input
                 placeholder="Search products…"
                 defaultValue={sp.q}
-                onChange={(e) => navigate({ search: (p) => ({ ...p, q: e.target.value || undefined }) })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  navigate({ search: (prev: any) => ({ ...prev, q: val || undefined }) });
+                }}
                 className="pl-9"
               />
             </div>
             <Select
               value={sp.sort ?? "default"}
-              onValueChange={(v) => navigate({ search: (p) => ({ ...p, sort: v === "default" ? undefined : (v as any) }) })}
+              onValueChange={(v) => navigate({ search: (prev: any) => ({ ...prev, sort: v === "default" ? undefined : v }) })}
             >
               <SelectTrigger className="w-full sm:w-56"><SelectValue placeholder="Sort by" /></SelectTrigger>
               <SelectContent>
