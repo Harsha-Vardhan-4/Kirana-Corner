@@ -4,7 +4,7 @@ A modern full-stack e-commerce web application for a local Kirana & General Stor
 
 🌐 Live Demo
 
-**Coming Soon (Vercel)**
+https://kirana-corner-five.vercel.app/
 
 📌 Features
 
