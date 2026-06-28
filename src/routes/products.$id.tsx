@@ -1,7 +1,8 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
 import { Minus, Plus, ShoppingCart, ArrowLeft, ShieldCheck, Truck, RefreshCw } from "lucide-react";
-import { products, categories } from "@/lib/data";
+import { categories } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/product-card";
@@ -9,22 +10,58 @@ import { useCart, formatINR } from "@/lib/store";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/products/$id")({
-  loader: ({ params }) => {
-    const product = products.find((p) => p.id === params.id);
-    if (!product) throw notFound();
-    return { product };
-  },
-  notFoundComponent: () => <div className="container mx-auto p-12 text-center">Product not found.</div>,
   component: ProductDetail,
 });
 
 function ProductDetail() {
-  const { product } = Route.useLoaderData();
+  const { id } = Route.useParams();
+  const [product, setProduct] = useState<any | null>(null);
+  const [related, setRelated] = useState<any[]>([]);
   const [qty, setQty] = useState(1);
   const { add } = useCart();
-  const cat = categories.find((c) => c.id === product.category);
-  const related = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
-  const inStock = product.stock > 0;
+if (!product) {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="aspect-square rounded-2xl bg-muted animate-pulse" />
+        <div className="space-y-4">
+          <div className="h-6 w-24 rounded bg-muted animate-pulse" />
+          <div className="h-10 w-72 rounded bg-muted animate-pulse" />
+          <div className="h-8 w-32 rounded bg-muted animate-pulse" />
+          <div className="h-24 w-full rounded bg-muted animate-pulse" />
+        </div>
+      </div>
+    </div>
+  );
+}
+  const cat = categories.find((c) => c.id === product?.category_id);
+  const inStock = product?.stock_quantity > 0;
+
+  useEffect(() => {
+  async function loadProduct() {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error || !data) return;
+
+    setProduct(data);
+    console.log("PRODUCT FROM DB:", data);
+
+    const { data: relatedProducts } = await supabase
+      .from("products")
+      .select("*")
+      .eq("category_id", data.category_id)
+      .neq("id", data.id)
+      .limit(4);
+
+    setRelated(relatedProducts || []);
+  }
+
+  loadProduct();
+}, [id]);
 
   return (
     <div className="container mx-auto px-4 py-6 md:py-8">
@@ -35,12 +72,12 @@ function ProductDetail() {
       <div className="grid gap-8 md:grid-cols-2">
         <div className="space-y-3">
           <div className="overflow-hidden rounded-2xl border bg-muted aspect-square">
-            <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
           </div>
           <div className="grid grid-cols-4 gap-2">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="overflow-hidden rounded-lg border bg-muted aspect-square cursor-pointer hover:border-primary">
-                <img src={product.image} alt="" className="h-full w-full object-cover opacity-90" />
+                <img src={product.image_url} alt="" className="h-full w-full object-cover opacity-90" />
               </div>
             ))}
           </div>
@@ -63,7 +100,7 @@ function ProductDetail() {
 
           <div>
             {inStock ? (
-              <Badge className="bg-success text-success-foreground">In Stock ({product.stock} available)</Badge>
+              <Badge className="bg-success text-success-foreground">In Stock ({product.stock_quantity} available)</Badge>
             ) : (
               <Badge variant="destructive">Out of Stock</Badge>
             )}
@@ -77,9 +114,25 @@ function ProductDetail() {
               <div className="w-10 text-center font-medium">{qty}</div>
               <button onClick={() => setQty(qty + 1)} className="grid h-10 w-10 place-items-center hover:bg-muted"><Plus className="h-4 w-4" /></button>
             </div>
-            <Button size="lg" disabled={!inStock} className="flex-1 gap-2" onClick={() => { add(product, qty); toast.success(`Added ${qty} × ${product.name}`); }}>
-              <ShoppingCart className="h-4 w-4" /> Add to Cart
-            </Button>
+            <Button
+  size="lg"
+  disabled={!inStock || product.stock_quantity <= 0}
+  className="flex-1 gap-2"
+  onClick={() => {
+    if (product.stock_quantity <= 0) {
+      toast.error("Product is out of stock");
+      return;
+    }
+
+    add(product, qty);
+    toast.success(`Added ${qty} × ${product.name}`);
+  }}
+>
+  <ShoppingCart className="h-4 w-4" />
+  {product.stock_quantity <= 0
+    ? "Out of Stock"
+    : "Add to Cart"}
+</Button>
           </div>
 
           <div className="grid grid-cols-3 gap-3 pt-4">

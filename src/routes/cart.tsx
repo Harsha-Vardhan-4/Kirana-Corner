@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useCart, formatINR } from "@/lib/store";
 
 export const Route = createFileRoute("/cart")({
-  head: () => ({ meta: [{ title: "Cart — Sri Lakshmi Kirana" }] }),
+  head: () => ({ meta: [{ title: "Cart — Kirana Corner" }] }),
   component: CartPage,
 });
 
@@ -31,7 +31,7 @@ function CartPage() {
         <div className="space-y-3">
           {items.map(({ product, qty }) => (
             <div key={product.id} className="flex gap-3 rounded-xl border bg-card p-3 shadow-card">
-              <img src={product.image} alt={product.name} className="h-20 w-20 rounded-lg object-cover" />
+              <img src={product.image_url ?? ""} alt={product.name} className="h-20 w-20 rounded-lg object-cover" />
               <div className="flex-1 min-w-0">
                 <Link to="/products/$id" params={{ id: product.id }} className="line-clamp-2 text-sm font-medium hover:text-primary">{product.name}</Link>
                 <div className="text-xs text-muted-foreground">{product.unit}</div>

@@ -7,26 +7,137 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCart, formatINR } from "@/lib/store";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { useEffect } from "react";
+
 
 export const Route = createFileRoute("/checkout")({
-  head: () => ({ meta: [{ title: "Checkout — Sri Lakshmi Kirana" }] }),
+  head: () => ({ meta: [{ title: "Checkout — Kirana Corner" }] }),
   component: Checkout,
 });
 
+
+
 function Checkout() {
+  const [profile, setProfile] = useState<any>(null);
   const { items, total, clear } = useCart();
   const [payment, setPayment] = useState("cod");
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
   const grand = total + (total < 499 ? 40 : 0);
 
-  const place = (e: React.FormEvent) => {
+  useEffect(() => {
+    async function loadProfile() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      setProfile(data);
+    }
+
+    loadProfile();
+  }, []);
+
+  const place = async (e: React.FormEvent) => {
     e.preventDefault();
-    setDone(true);
-    clear();
-    toast.success("Order placed successfully!");
-    setTimeout(() => navigate({ to: "/orders" }), 1800);
-  };
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    toast.error("Please login first");
+    return;
+  }
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .insert({
+      user_id: user.id,
+      total_amount: grand,
+      payment_method: payment,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (orderError) {
+    console.error(orderError);
+    toast.error("Failed to place order");
+    return;
+  }
+
+  const orderItems = items.map(({ product, qty }) => ({
+    order_id: order.id,
+    product_id: product.id,
+    quantity: qty,
+    price: product.price,
+  }));
+
+  const { error: itemError } = await supabase
+    .from("order_items")
+    .insert(orderItems);
+
+  if (itemError) {
+    console.error(itemError);
+    toast.error("Failed to save order items");
+    return;
+  }
+
+  // Check stock and reduce inventory
+for (const item of items) {
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id, stock_quantity")
+    .eq("id", item.product.id)
+    .single();
+
+  if (productError || !product) {
+    toast.error(`Product not found: ${item.product.name}`);
+    return;
+  }
+
+  if (product.stock_quantity < item.qty) {
+    toast.error(
+      `${item.product.name} only has ${product.stock_quantity} items left`
+    );
+    return;
+  }
+
+  const newStock = product.stock_quantity - item.qty;
+
+  const { error: updateError } = await supabase
+    .from("products")
+    .update({
+      stock_quantity: newStock,
+      stock_status:
+        newStock <= 0 ? "out_of_stock" : "in_stock",
+    })
+    .eq("id", product.id);
+
+  if (updateError) {
+    console.error(updateError);
+    toast.error("Failed to update inventory");
+    return;
+  }
+}
+
+  setDone(true);
+  clear();
+  toast.success("Order placed successfully!");
+
+  setTimeout(() => {
+    navigate({ to: "/orders" });
+  }, 1800);
+};
 
   if (done) {
     return (
@@ -46,11 +157,11 @@ function Checkout() {
           <section className="rounded-xl border bg-card p-5 shadow-card">
             <h2 className="font-bold mb-4">Delivery Address</h2>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div><Label>Full Name</Label><Input required defaultValue="Ramesh Kumar" /></div>
-              <div><Label>Phone</Label><Input required defaultValue="+91 98765 43210" /></div>
-              <div className="sm:col-span-2"><Label>Address</Label><Input required defaultValue="12-3-45, Main Road" /></div>
-              <div><Label>City</Label><Input required defaultValue="Hyderabad" /></div>
-              <div><Label>Pincode</Label><Input required defaultValue="500001" /></div>
+              <div><Label>Full Name</Label><Input required value={profile?.full_name || ""} readOnly /></div>
+              <div><Label>Phone</Label><Input required value={profile?.phone || ""} readOnly /></div>
+              <div className="sm:col-span-2"><Label>Address</Label><Input required value={profile?.address || ""} readOnly /></div>
+              <div><Label>City</Label><Input required value={profile?.city || ""} readOnly /></div>
+              <div><Label>Pincode</Label><Input required value={profile?.pincode || ""} readOnly /></div>
             </div>
           </section>
 

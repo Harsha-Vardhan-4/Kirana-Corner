@@ -1,6 +1,9 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { LayoutDashboard, Package, Boxes, Tags, ClipboardList, BarChart3, Sparkles, Brain, LogOut } from "lucide-react";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { supabase } from "@/lib/supabase";
 
 const links = [
   { to: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -14,7 +17,49 @@ const links = [
 ];
 
 export function AdminLayout({ children }: { children: ReactNode }) {
+
+  const navigate = useNavigate();
+
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  async function checkAdmin() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      navigate({ to: "/" });
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile || profile.role !== "admin") {
+      navigate({ to: "/" });
+      return;
+    }
+
+    setLoading(false);
+  }
+
+  checkAdmin();
+}, []);
+
+
   const path = useRouterState({ select: (s) => s.location.pathname });
+
+    if (loading) {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      Loading...
+    </div>
+  );
+}
   return (
     <div className="flex min-h-screen w-full bg-muted/20">
       <aside className="hidden md:flex w-60 flex-col border-r bg-sidebar text-sidebar-foreground">
@@ -22,7 +67,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-hero text-primary-foreground font-bold">SL</div>
           <div className="leading-tight">
             <div className="text-sm font-bold">Admin Panel</div>
-            <div className="text-[10px] text-muted-foreground">Sri Lakshmi Store</div>
+            <div className="text-[10px] text-muted-foreground">Kirana Corner</div>
           </div>
         </div>
         <nav className="flex-1 space-y-1 p-2">

@@ -3,10 +3,16 @@ import { Package, ShoppingBag, Users, TrendingUp, AlertTriangle, IndianRupee } f
 import { AdminLayout } from "@/components/admin-layout";
 import { Badge } from "@/components/ui/badge";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { products, placeholderOrders, salesData, monthlySales } from "@/lib/data";
+import { salesData, monthlySales } from "@/lib/data";
 import { formatINR } from "@/lib/store";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/adminGuard";
 
 export const Route = createFileRoute("/admin/dashboard")({
+  beforeLoad: async () => {
+    await requireAdmin();
+  },
   head: () => ({ meta: [{ title: "Admin Dashboard" }] }),
   component: Dashboard,
 });
@@ -20,15 +26,101 @@ const statusColor: Record<string, string> = {
 };
 
 function Dashboard() {
-  const lowStock = products.filter((p) => p.stock < 20);
-  const stats = [
-    { label: "Total Products", value: products.length, icon: Package, color: "bg-primary/10 text-primary" },
-    { label: "Total Orders", value: 142, icon: ShoppingBag, color: "bg-accent/10 text-accent" },
-    { label: "Total Customers", value: 86, icon: Users, color: "bg-chart-3/10 text-chart-3" },
-    { label: "Total Revenue", value: formatINR(478000), icon: IndianRupee, color: "bg-success/10 text-success" },
-    { label: "Monthly Sales", value: formatINR(478000), icon: TrendingUp, color: "bg-warning/20 text-warning-foreground" },
-    { label: "Low Stock Items", value: lowStock.length, icon: AlertTriangle, color: "bg-destructive/10 text-destructive" },
-  ];
+  const [totalProducts, setTotalProducts] = useState(0);
+const [totalOrders, setTotalOrders] = useState(0);
+const [totalCustomers, setTotalCustomers] = useState(0);
+const [totalRevenue, setTotalRevenue] = useState(0);
+
+const [recentOrders, setRecentOrders] = useState<any[]>([]);
+const [lowStock, setLowStock] = useState<any[]>([]);
+
+
+const stats = [
+  {
+    label: "Total Products",
+    value: totalProducts,
+    icon: Package,
+    color: "bg-primary/10 text-primary",
+  },
+  {
+    label: "Total Orders",
+    value: totalOrders,
+    icon: ShoppingBag,
+    color: "bg-accent/10 text-accent",
+  },
+  {
+    label: "Total Customers",
+    value: totalCustomers,
+    icon: Users,
+    color: "bg-chart-3/10 text-chart-3",
+  },
+  {
+    label: "Total Revenue",
+    value: formatINR(totalRevenue),
+    icon: IndianRupee,
+    color: "bg-success/10 text-success",
+  },
+  {
+    label: "Low Stock Items",
+    value: lowStock.length,
+    icon: AlertTriangle,
+    color: "bg-destructive/10 text-destructive",
+  },
+];
+
+useEffect(() => {
+  async function loadDashboard() {
+    const [
+      productsRes,
+      ordersRes,
+      customersRes,
+      recentOrdersRes,
+      lowStockRes,
+    ] = await Promise.all([
+      supabase.from("products").select("*", { count: "exact", head: true }),
+
+      supabase.from("orders").select("total_amount"),
+
+      supabase.from("profiles").select("*", {
+        count: "exact",
+        head: true,
+      }),
+
+      supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(5),
+
+      supabase
+        .from("products")
+        .select("*")
+        .lte("stock_quantity", 20)
+        .order("stock_quantity"),
+    ]);
+
+    setTotalProducts(productsRes.count || 0);
+
+    setTotalCustomers(customersRes.count || 0);
+
+    setRecentOrders(recentOrdersRes.data || []);
+
+    setLowStock(lowStockRes.data || []);
+
+    const orders = ordersRes.data || [];
+
+    setTotalOrders(orders.length);
+
+    const revenue = orders.reduce(
+      (sum, order) => sum + Number(order.total_amount || 0),
+      0
+    );
+
+    setTotalRevenue(revenue);
+  }
+
+  loadDashboard();
+}, []);
 
   return (
     <AdminLayout>
@@ -80,16 +172,27 @@ function Dashboard() {
         <div className="rounded-xl border bg-card p-5 shadow-card">
           <h3 className="font-semibold mb-4">Recent Orders</h3>
           <div className="space-y-2">
-            {placeholderOrders.slice(0, 5).map((o) => (
+            {recentOrders.map((o) => (
               <div key={o.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
-                <div>
-                  <div className="font-medium">{o.id}</div>
-                  <div className="text-xs text-muted-foreground">{o.customer}</div>
-                </div>
-                <div className="font-medium">{formatINR(o.total)}</div>
-                <Badge className={statusColor[o.status]}>{o.status}</Badge>
-              </div>
-            ))}
+  <div>
+    <div className="font-medium">
+      {o.id.slice(0, 8)}
+    </div>
+
+    <div className="text-xs text-muted-foreground">
+      {new Date(o.created_at).toLocaleDateString()}
+    </div>
+  </div>
+
+  <div className="font-medium">
+    {formatINR(Number(o.total_amount))}
+  </div>
+
+  <Badge>
+    {o.status}
+  </Badge>
+</div>
+))}
           </div>
         </div>
         <div className="rounded-xl border bg-card p-5 shadow-card">
@@ -98,10 +201,10 @@ function Dashboard() {
             {lowStock.slice(0, 5).map((p) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg border p-3 text-sm">
                 <div className="flex items-center gap-2 min-w-0">
-                  <img src={p.image} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+                  <img src={p.image_url} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
                   <div className="truncate">{p.name}</div>
                 </div>
-                <Badge variant={p.stock === 0 ? "destructive" : "secondary"}>{p.stock} left</Badge>
+                <Badge variant={p.stock_quantity === 0 ? "destructive" : "secondary"}>{p.stock_quantity} left</Badge>
               </div>
             ))}
           </div>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import type { Product } from "./data";
+import type { Product } from "@/types/product";
 
 export type CartItem = { product: Product; qty: number };
 

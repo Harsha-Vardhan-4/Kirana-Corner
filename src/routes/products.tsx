@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { z } from "zod";
 import { Search } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
-import { categories, products } from "@/lib/data";
+//import { categories } from "@/lib/data";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/lib/supabase";
 
 const search = z.object({
   category: z.string().optional(),
@@ -15,7 +16,7 @@ const search = z.object({
 
 export const Route = createFileRoute("/products")({
   validateSearch: search,
-  head: () => ({ meta: [{ title: "Shop Products — Sri Lakshmi Kirana" }] }),
+  head: () => ({ meta: [{ title: "Shop Products — Kirana Corner" }] }),
   component: ProductsPage,
 });
 
@@ -23,25 +24,82 @@ function ProductsPage() {
   const sp = Route.useSearch();
   const navigate = Route.useNavigate();
   const [page, setPage] = useState(1);
+  const [products, setProducts] = useState<any[]>([]);
   const perPage = 12;
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  console.log("CATEGORY CLICKED:", sp.category);
+
+  useEffect(() => {
+  async function loadProducts() {
+
+    setLoading(true);
+
+    const { data, error } = await supabase
+  .from("products")
+  .select("*");
+
+const { data: categoriesData } = await supabase
+  .from("categories")
+  .select("*")
+  .order("name");
+
+setCategories(categoriesData || []);
+
+    if (!error && data) {
+      setProducts(data);
+    }
+
+    setCategories(categoriesData || []);
+    setLoading(false);
+  }
+
+  loadProducts();
+}, []);
 
   const list = useMemo(() => {
     let l = products.slice();
-    if (sp.category) l = l.filter((p) => p.category === sp.category);
+    if (sp.category) {
+  l = l.filter((p) => p.category_id === sp.category);
+}
     if (sp.q) {
       const q = sp.q.toLowerCase();
-      l = l.filter((p) => p.name.toLowerCase().includes(q));
+      l = l.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.description?.toLowerCase().includes(q)
+      );
     }
     if (sp.sort === "price-asc") l.sort((a, b) => a.price - b.price);
     else if (sp.sort === "price-desc") l.sort((a, b) => b.price - a.price);
     else if (sp.sort === "name") l.sort((a, b) => a.name.localeCompare(b.name));
     return l;
-  }, [sp]);
+  }, [sp, products]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [sp.category, sp.q]);
 
   const totalPages = Math.max(1, Math.ceil(list.length / perPage));
   const paged = list.slice((page - 1) * perPage, page * perPage);
   const activeCat = categories.find((c) => c.id === sp.category);
 
+  if (loading) {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="h-64 rounded-xl border animate-pulse bg-muted"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+  
   return (
     <div className="container mx-auto px-4 py-6 md:py-8">
       <div className="mb-6">
@@ -102,9 +160,15 @@ function ProductsPage() {
               </SelectContent>
             </Select>
           </div>
+          
 
           {paged.length === 0 ? (
-            <div className="rounded-xl border bg-card p-12 text-center text-muted-foreground">No products found.</div>
+            <div className="rounded-xl border p-12 text-center">
+  <h3 className="font-semibold">No products found</h3>
+  <p className="text-sm text-muted-foreground mt-2">
+    Try a different search term or category.
+  </p>
+</div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {paged.map((p) => <ProductCard key={p.id} product={p} />)}

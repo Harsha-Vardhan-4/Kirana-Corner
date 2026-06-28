@@ -7,8 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { categories, products } from "@/lib/data";
 import { toast } from "sonner";
+import { requireAdmin } from "@/lib/adminGuard";
 
 export const Route = createFileRoute("/admin/categories")({
+  beforeLoad: async () => {
+    await requireAdmin();
+  },
   head: () => ({ meta: [{ title: "Categories" }] }),
   component: () => (
     <AdminLayout>

@@ -3,8 +3,12 @@ import { Brain, AlertTriangle, TrendingUp, TrendingDown, Package } from "lucide-
 import { AdminLayout } from "@/components/admin-layout";
 import { Badge } from "@/components/ui/badge";
 import { products } from "@/lib/data";
+import { requireAdmin } from "@/lib/adminGuard";
 
 export const Route = createFileRoute("/admin/ai-insights")({
+  beforeLoad: async () => {
+    await requireAdmin();
+  },
   head: () => ({ meta: [{ title: "AI Insights" }] }),
   component: () => {
     const lowStock = products.filter((p) => p.stock < 20).slice(0, 5);

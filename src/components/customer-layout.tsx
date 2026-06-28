@@ -1,7 +1,8 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Search, ShoppingCart, User, Menu, LogIn, ChevronDown, X } from "lucide-react";
-import { useState } from "react";
-import { useCart, useAuth } from "@/lib/store";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useCart } from "@/lib/store";
 import { categories } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,77 @@ import {
 
 export function CustomerHeader() {
   const { count } = useCart();
-  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+
+  const searchParams = useRouterState({
+  select: (s) => s.location.search,
+});
+
+const currentQuery = (searchParams as any)?.q ?? "";
+
+  useEffect(() => {
+    setSearchValue(currentQuery);
+  }, [currentQuery]);
+
+  function handleSearchChange(value: string) {
+    setSearchValue(value);
+    navigate({ to: "/products", search: { q: value || undefined } });
+  }
+
+  useEffect(() => {
+    async function loadUser() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const currentUser = session?.user ?? null;
+
+  setUser(currentUser);
+
+  if (currentUser) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", currentUser.id)
+      .single();
+
+    setIsAdmin(profile?.role === "admin");
+  } else {
+    setIsAdmin(false);
+  }
+}
+
+  loadUser();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(async(_event, session) => {
+    const currentUser = session?.user ?? null;
+
+setUser(currentUser);
+
+if (currentUser) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", currentUser.id)
+    .single();
+
+  setIsAdmin(profile?.role === "admin");
+} else {
+  setIsAdmin(false);
+}
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
+
+const logout = async () => {
+  await supabase.auth.signOut();
+};
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -26,14 +97,18 @@ export function CustomerHeader() {
             SL
           </div>
           <div className="hidden sm:block leading-tight">
-            <div className="text-sm font-bold text-foreground">Sri Lakshmi Narasimha</div>
-            <div className="text-[10px] text-muted-foreground">Kirana & General Store</div>
+            <div className="text-sm font-bold text-foreground">Kirana Corner</div>
           </div>
         </Link>
 
         <div className="relative hidden md:flex flex-1 max-w-xl mx-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search for rice, atta, oil…" className="pl-9 bg-muted/50" />
+          <Input
+            placeholder="Search for rice, atta, oil…"
+            className="pl-9 bg-muted/50"
+            value={searchValue}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
         </div>
 
         <DropdownMenu>
@@ -74,11 +149,18 @@ export function CustomerHeader() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Hi, {user.name}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+  Hi, {user.email}
+</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild><Link to="/profile">My Profile</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link to="/orders">My Orders</Link></DropdownMenuItem>
               <DropdownMenuSeparator />
+              {isAdmin && (
+  <DropdownMenuItem asChild>
+    <Link to="/admin/dashboard">Admin Panel</Link>
+  </DropdownMenuItem>
+)}
               <DropdownMenuItem onClick={logout}>Log out</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -91,7 +173,12 @@ export function CustomerHeader() {
 
       <div className="relative md:hidden px-4 pb-3">
         <Search className="absolute left-7 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search products…" className="pl-9 bg-muted/50" />
+        <Input
+          placeholder="Search products…"
+          className="pl-9 bg-muted/50"
+          value={searchValue}
+          onChange={(e) => handleSearchChange(e.target.value)}
+        />
       </div>
 
       {mobileOpen && (
@@ -124,7 +211,7 @@ export function CustomerFooter() {
         <div>
           <div className="flex items-center gap-2">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-hero text-primary-foreground font-bold">SL</div>
-            <div className="font-bold">Sri Lakshmi Narasimha</div>
+            <div className="font-bold">Kirana Corner</div>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">Your neighbourhood kirana & general store — now online.</p>
         </div>
@@ -154,7 +241,7 @@ export function CustomerFooter() {
         </div>
       </div>
       <div className="border-t py-4 text-center text-xs text-muted-foreground">
-        © 2026 Sri Lakshmi Narasimha Kirana & General Store. All rights reserved.
+        © 2026 Kirana & General Store. All rights reserved.
       </div>
     </footer>
   );

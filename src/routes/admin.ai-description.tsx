@@ -8,8 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { categories } from "@/lib/data";
+import { requireAdmin } from "@/lib/adminGuard";
 
 export const Route = createFileRoute("/admin/ai-description")({
+  beforeLoad: async () => {
+    await requireAdmin();
+  },
   head: () => ({ meta: [{ title: "AI Description Generator" }] }),
   component: AIGen,
 });

@@ -3,12 +3,16 @@ import { ArrowRight, Truck, ShieldCheck, Clock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OffersCarousel } from "@/components/offers-carousel";
 import { ProductCard } from "@/components/product-card";
-import { categories, products } from "@/lib/data";
+import { categories } from "@/lib/data";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import type { Product } from "@/types/product";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Sri Lakshmi Narasimha Kirana & General Store — Fresh Groceries Delivered" },
+      { title: "Kirana Corner — Fresh Groceries Delivered" },
       { name: "description", content: "Modern online kirana store — rice, dals, snacks, household & more at best prices." },
     ],
   }),
@@ -16,8 +20,25 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const featured = products.filter((p) => p.featured);
-  const bestSellers = products.filter((p) => p.bestSeller);
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
+  useEffect(() => {
+  async function loadProducts() {
+    const { data, error } = await supabase
+      .from("products")
+      .select("*");
+
+    if (!error && data) {
+      setDbProducts(data);
+    }
+
+    console.log("HOME PRODUCTS:", data);
+  }
+
+  loadProducts();
+}, []);
+
+const featured = dbProducts.filter((p) => p.featured);
+const bestSellers = dbProducts.filter((p) => p.best_seller);
   return (
     <div className="space-y-12 pb-12">
       {/* Hero */}
@@ -51,9 +72,9 @@ function Home() {
             <div className="absolute -top-6 -right-6 h-32 w-32 rounded-full bg-accent/20 blur-2xl" />
             <div className="absolute bottom-0 left-10 h-40 w-40 rounded-full bg-primary/20 blur-2xl" />
             <div className="relative grid grid-cols-2 gap-3">
-              {products.slice(0, 4).map((p, i) => (
+              {dbProducts.slice(0, 4).map((p, i) => (
                 <div key={p.id} className={`overflow-hidden rounded-2xl bg-card shadow-card animate-fade-in ${i % 2 ? "translate-y-6" : ""}`}>
-                  <img src={p.image} alt={p.name} className="aspect-square w-full object-cover" />
+                  <img src={p.image_url ?? ""} alt={p.name} className="aspect-square w-full object-cover" />
                 </div>
               ))}
             </div>

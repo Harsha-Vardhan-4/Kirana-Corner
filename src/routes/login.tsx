@@ -3,17 +3,19 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/lib/store";
+import { supabase } from "../lib/supabase";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Login — Sri Lakshmi Kirana" }] }),
+  head: () => ({ meta: [{ title: "Login — Kirana Corner" }] }),
   component: Login,
 });
 
 function Login() {
-  const { login } = useAuth();
+  
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
+const [password, setPassword] = useState("");
 
   return (
     <div className="container mx-auto flex min-h-[80vh] items-center justify-center px-4">
@@ -23,9 +25,30 @@ function Login() {
           <h1 className="mt-4 text-2xl font-bold">Welcome back</h1>
           <p className="text-sm text-muted-foreground">Login to continue shopping</p>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); login(email); navigate({ to: "/" }); }} className="space-y-4">
+        <form onSubmit={async (e) => {
+  e.preventDefault();
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    toast.error(error.message);
+    return;
+  }
+
+  toast.success("Login successful");
+  navigate({ to: "/" });
+}} className="space-y-4">
           <div><Label>Email</Label><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></div>
-          <div><Label>Password</Label><Input type="password" required placeholder="••••••••" /></div>
+          <div><Label>Password</Label><Input
+  type="password"
+  required
+  value={password}
+  onChange={(e) => setPassword(e.target.value)}
+  placeholder="••••••••"
+/></div>
           <div className="flex justify-end">
             <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
           </div>

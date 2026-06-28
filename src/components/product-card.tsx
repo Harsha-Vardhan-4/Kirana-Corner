@@ -2,19 +2,20 @@ import { Link } from "@tanstack/react-router";
 import { Heart, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Product } from "@/lib/data";
+import type { Product } from "@/types/product";
 import { useCart, formatINR } from "@/lib/store";
 import { toast } from "sonner";
 
+
 export function ProductCard({ product }: { product: Product }) {
   const { add } = useCart();
-  const inStock = product.stock > 0;
+  const inStock = product.stock_quantity > 0;
   const discount = product.mrp ? Math.round(((product.mrp - product.price) / product.mrp) * 100) : 0;
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border bg-card shadow-card transition-all hover:shadow-soft hover:-translate-y-0.5">
       <Link to="/products/$id" params={{ id: product.id }} className="relative block aspect-square overflow-hidden bg-muted">
         <img
-          src={product.image}
+          src={product.image_url ?? ""}
           alt={product.name}
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
