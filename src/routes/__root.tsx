@@ -11,6 +11,7 @@ import { CartProvider, AuthProvider } from "@/lib/store";
 import { CustomerHeader, CustomerFooter } from "@/components/customer-layout";
 import { ChatWidget } from "@/components/chat-widget";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
 
 function NotFoundComponent() {
   return (
@@ -74,6 +75,7 @@ function CustomerChrome() {
       <CustomerHeader />
       <main className="flex-1">
         <Outlet />
+        <Analytics />
       </main>
       <CustomerFooter />
       <ChatWidget />
